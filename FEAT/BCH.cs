@@ -1,11 +1,11 @@
 ﻿using System;
 using System.IO;
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
 using System.Collections.Generic;
+using Fire_Emblem_Awakening_Archive_Tool.Properties;
 
 namespace BCH
 {
@@ -29,7 +29,7 @@ namespace BCH
                 return false;
 
             // BCH should now be in our data array.
-            BCH bch = BCHTool.analyze(path, input);
+            BCH bch = analyze(path, input);
             if (bch.TextureCount > 0)
             {
                 Directory.CreateDirectory(bch.FilePath + "\\" + bch.FileName + "_\\");
@@ -83,10 +83,12 @@ namespace BCH
 
         public static BCH analyze(string path, byte[] input)
         {
-            BCH bch = new BCH();
-            bch.FileName = Path.GetFileNameWithoutExtension(path);
-            bch.FilePath = Path.GetDirectoryName(path);
-            bch.Extension = Path.GetExtension(path);
+            BCH bch = new BCH
+            {
+                FileName = Path.GetFileNameWithoutExtension(path),
+                FilePath = Path.GetDirectoryName(path),
+                Extension = Path.GetExtension(path)
+            };
             using (MemoryStream ms = new MemoryStream())
             {
                 using (BinaryWriter bw = new BinaryWriter(ms))
@@ -155,7 +157,7 @@ namespace BCH
                             {
                                 // key--;
                             }
-                            string name = "";
+                            string name;
                             bch.RawNames.TryGetValue(key, out name);
                             bch.TexNames.Add(name);
                             br.BaseStream.Seek(CurTexture.DescOffset, SeekOrigin.Begin);
@@ -180,7 +182,7 @@ namespace BCH
                             bchtex.Length = bch.Textures[i + 1].DataOffset - bch.Textures[i].DataOffset;
                             if (bch.InfoOffset == 0x44)
                             {
-                                bchtex.Length = (uint)(FormatToBPP((int)bchtex.Format) * (double)bchtex.Width * (double)bchtex.Height);
+                                bchtex.Length = (uint)(FormatToBPP((int)bchtex.Format) * bchtex.Width * bchtex.Height);
                             }
                             bch.Textures[i] = bchtex;
                         }
@@ -190,7 +192,7 @@ namespace BCH
                             bchtex1.Length = bch.DataLength - bchtex1.DataOffset;
                             if (bch.InfoOffset == 0x44)
                             {
-                                bchtex1.Length = (uint)(FormatToBPP((int)bchtex1.Format) * (double)bchtex1.Width * (double)bchtex1.Height);
+                                bchtex1.Length = (uint)(FormatToBPP((int)bchtex1.Format) * bchtex1.Width * bchtex1.Height);
                             }
                             bch.Textures[bch.Textures.Count - 1] = bchtex1;
                         }
@@ -238,10 +240,7 @@ namespace BCH
             Array.Copy(data, bchtex.DataOffset, temp, 0, temp.Length);
             data = temp;
             // Coordinates
-            uint x, y = 0;
             // Colors
-            Color c = new Color();
-            uint val = 0;
             // Tiles Per Width
             int p = gcm(img.Width, 8) / 8;
             if (p == 0) p = 1;
@@ -250,6 +249,7 @@ namespace BCH
             using (BinaryReader br = new BinaryReader(BitmapStream))
                 for (uint i = 0; i < area; i++) // for every pixel
                 {
+                    uint x, y;
                     d2xy(i % 64, out x, out y);
                     uint tile = i / 64;
 
@@ -258,6 +258,7 @@ namespace BCH
                     y += (uint)(tile / p) * 8;
 
                     // Get Color
+                    Color c;
                     switch (f)
                     {
                         case 0: //RGBA8 - 4 bytes
@@ -281,7 +282,7 @@ namespace BCH
                             break;
                         case 0xA: //L4
                         case 0xB: //A4
-                            val = br.ReadByte();
+                            uint val = br.ReadByte();
                             img.SetPixel((int)x, (int)y, DecodeColor(val & 0xF, f));
                             i++; x++;
                             c = DecodeColor(val >> 4, f);
@@ -300,8 +301,8 @@ namespace BCH
         private static Bitmap getIMG_ETC1(BCHTexture bchtex, byte[] data)
         {
             Bitmap img = new Bitmap(Math.Max(nlpo2(bchtex.Width), 16), Math.Max(nlpo2(bchtex.Height), 16));
-            string dllpath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location).Replace('\\', '/') + "/ETC1.dll";
-            if (!File.Exists(dllpath)) File.WriteAllBytes(dllpath, Fire_Emblem_Awakening_Archive_Tool.Properties.Resources.ETC1);
+            string dllpath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location).Replace('\\', '/') + "/ETC1.dll";
+            if (!File.Exists(dllpath)) File.WriteAllBytes(dllpath, Resources.ETC1);
             try
             {
                 /*
@@ -398,17 +399,18 @@ namespace BCH
                     return img2;
                 }
             }
-            catch (System.IndexOutOfRangeException)
+            catch (IndexOutOfRangeException)
             {
                 //
             }
-            catch (System.AccessViolationException)
+            catch (AccessViolationException)
             {
                 //
             }
             return img;
         }
 
+        // Unused Method
         private int getColorCount(Bitmap img)
         {
             Color[] colors = new Color[img.Width * img.Height];
@@ -566,7 +568,7 @@ namespace BCH
                                    0xC5,0xCD,0xD5,0xDE,0xE6,0xEE,0xF6,0xFF };
             byte i = 0;
             while (colorval > Convert8to5[i]) i++;
-            return (byte)i;
+            return i;
         }
         UInt32 DM2X(UInt32 code)
         {
