@@ -84,7 +84,7 @@ namespace ctpktool
         private Color GetPixel(ref int ofs, out decimal adjustment)
         {
             var col = new Color();
-            int pixel;
+            int pixel = 0;
 
             //Exit early if trying to read out of bounds
             if (ofs >= Data.Length)

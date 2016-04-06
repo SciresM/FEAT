@@ -128,6 +128,7 @@ namespace ctpktool
                 file.Write(writer);
             }
 
+            Console.WriteLine("Finished! Saved to {0}", outputFilename);
 
             return file;
         }
@@ -149,6 +150,10 @@ namespace ctpktool
             using(MemoryStream dataStream = new MemoryStream(data))
             using (BinaryReader reader = new BinaryReader(dataStream))
             {
+                if (reader.ReadUInt32() != Magic)
+                {
+                    Console.WriteLine("ERROR: Not a valid CTPK file.");
+                }
 
                 file.Version = reader.ReadUInt16();
                 file.NumberOfTextures = reader.ReadUInt16();
@@ -203,7 +208,7 @@ namespace ctpktool
 
                 for (int i = 0; i < file.NumberOfTextures; i++)
                 {
-                    // Console.WriteLine("Converting {0}...", file._entries[i].InternalFilePath);
+                    Console.WriteLine("Converting {0}...", file._entries[i].InternalFilePath);
                     file._entries[i].ToFile(baseFilename);
                 }
             }
