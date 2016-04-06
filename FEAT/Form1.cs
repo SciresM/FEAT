@@ -153,13 +153,6 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                     string[] textfile = File.ReadAllLines(path);
                     if (textfile.Length > 6 && textfile[0].StartsWith("MESS_ARCHIVE") && textfile[3] == "Message Name: Message" && textfile.Skip(6).All(s => s.Contains(": ")))
                     {
-                        DialogResult dr = DialogResult.Cancel;
-                        if (InvokeRequired)
-                            Invoke(new Action(() => dr = MessageBox.Show(string.Format("Found Message Archive .txt file ({0}). Rebuild archive?", Path.GetFileName(path)), "Prompt", MessageBoxButtons.YesNo, MessageBoxIcon.Asterisk)));
-                        else
-                            dr = MessageBox.Show(string.Format("Found Message Archive .txt file ({0}). Rebuild archive?", Path.GetFileName(path)), "Prompt", MessageBoxButtons.YesNo, MessageBoxIcon.Asterisk);
-                        if (dr == DialogResult.Yes)
-                        {
                             AddText(RTB_Output, string.Format("Rebuilding Message Archive from {0}...", Path.GetFileName(path)));
                             string outname = Path.GetDirectoryName(path) + Path.DirectorySeparatorChar + Path.GetFileNameWithoutExtension(path) + ".bin";
                             byte[] arch = MakeFireEmblemMessageArchive(textfile);
@@ -172,7 +165,6 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                             Array.Copy(cmp, 0, cmp2, 4, cmp.Length);
                             Array.Copy(cmp, 1, cmp2, 1, 3);
                             File.WriteAllBytes(outname + ".lz", cmp2);
-                        }
                     }
                 }
             }
