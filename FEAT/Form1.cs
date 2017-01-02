@@ -102,9 +102,7 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                 {
                     byte[] filedata = File.ReadAllBytes(path);
                     string decpath = Path.GetDirectoryName(path) + Path.DirectorySeparatorChar + Path.GetFileNameWithoutExtension(path);
-                    if ((BitConverter.ToUInt32(filedata, 0) & 0xFFFF0000) == (BitConverter.ToUInt32(filedata, 4) & 0xFFFF0000)
-                        && filedata[0] == 0x13
-                        && filedata[4] == 0x11) // "LZ13"
+                    if (filedata[0] == 0x13 && filedata[4] == 0x11) // "LZ13"
                     {
                         filedata = filedata.Skip(4).ToArray();
                     }

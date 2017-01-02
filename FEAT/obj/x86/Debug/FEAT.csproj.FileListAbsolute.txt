@@ -1,0 +1,9 @@
+C:\Users\robot\Desktop\FEAT-master\FEAT\obj\x86\Debug\FEAT.csprojResolveAssemblyReference.cache
+C:\Users\robot\Desktop\FEAT-master\FEAT\obj\x86\Debug\Fire_Emblem_Awakening_Archive_Tool.Form1.resources
+C:\Users\robot\Desktop\FEAT-master\FEAT\obj\x86\Debug\Fire_Emblem_Awakening_Archive_Tool.Properties.Resources.resources
+C:\Users\robot\Desktop\FEAT-master\FEAT\obj\x86\Debug\FEAT.csproj.GenerateResource.Cache
+C:\Users\robot\Desktop\FEAT-master\FEAT\bin\Debug\ETC1.dll
+C:\Users\robot\Desktop\FEAT-master\FEAT\bin\Debug\FEAT.exe
+C:\Users\robot\Desktop\FEAT-master\FEAT\bin\Debug\FEAT.pdb
+C:\Users\robot\Desktop\FEAT-master\FEAT\obj\x86\Debug\FEAT.exe
+C:\Users\robot\Desktop\FEAT-master\FEAT\obj\x86\Debug\FEAT.pdb
