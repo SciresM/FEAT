@@ -106,7 +106,7 @@ namespace ctpktool
             reader.BaseStream.Seek(pathOffset, SeekOrigin.Begin);
 
             List<byte> temp = new List<byte>();
-            byte c;
+            byte c = 0;
             while ((c = reader.ReadByte()) != 0)
             {
                 temp.Add(c);
@@ -139,14 +139,15 @@ namespace ctpktool
 
         public void ToFile(string outputFolder)
         {
+            string dir = Path.GetDirectoryName(InternalFilePath);
+            string filename = Path.GetFileNameWithoutExtension(InternalFilePath);
+
             if (!String.IsNullOrWhiteSpace(outputFolder) && !Directory.Exists(outputFolder))
             {
                 Directory.CreateDirectory(outputFolder);
             }
 
-            string filename = Path.GetFileNameWithoutExtension(InternalFilePath);
-            string dir = Path.GetDirectoryName(InternalFilePath);
-            if (false && !String.IsNullOrWhiteSpace(dir))
+            if (!String.IsNullOrWhiteSpace(dir))
             {
                 if (!String.IsNullOrWhiteSpace(outputFolder))
                     dir = Path.Combine(outputFolder, dir);
@@ -186,6 +187,7 @@ namespace ctpktool
 
                 CTPKEntry entry = (CTPKEntry)serializer.Deserialize(reader);
 
+                Console.WriteLine("Reading {0}...", entry.FilePath);
 
                 // Import image file
                 entry._textureData = new Texture();
@@ -195,7 +197,7 @@ namespace ctpktool
                 if (!String.IsNullOrWhiteSpace(foldername))
                     path = Path.Combine(foldername, path);
 
-                var origbmp = Image.FromFile(path);
+                var origbmp = Bitmap.FromFile(path);
 
                 var pixelSize = 3;
                 var bmpPixelFormat = PixelFormat.Format24bppRgb;
