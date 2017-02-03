@@ -106,6 +106,17 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                     {
                         filedata = filedata.Skip(4).ToArray();
                     }
+                    else if (filedata[0] == 0x17 && filedata[4] == 0x11) // Fire Emblem Heroes "LZ17"
+                    {
+                        var xorkey = BitConverter.ToUInt32(filedata, 0) >> 8;
+                        xorkey *= 0x8083;
+                        for (var i = 8; i < filedata.Length; i += 0x4)
+                        {
+                            BitConverter.GetBytes(BitConverter.ToUInt32(filedata, i) ^ xorkey).CopyTo(filedata, i);
+                            xorkey ^= BitConverter.ToUInt32(filedata, i);
+                        }
+                        filedata = filedata.Skip(4).ToArray();
+                    }
                     try
                     {
                         File.WriteAllBytes(decpath, LZ11Decompress(filedata));
