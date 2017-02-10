@@ -117,6 +117,29 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                         }
                         filedata = filedata.Skip(4).ToArray();
                     }
+                    else if (filedata[0] == 0x4 && (BitConverter.ToUInt32(filedata, 0) >> 8) == filedata.Length - 4)
+                    {
+                        var xorkey = BitConverter.ToUInt32(filedata, 0) >> 8;
+                        xorkey *= 0x8083;
+                        for (var i = 4; i < filedata.Length; i += 0x4)
+                        {
+                            BitConverter.GetBytes(BitConverter.ToUInt32(filedata, i) ^ xorkey).CopyTo(filedata, i);
+                            xorkey ^= BitConverter.ToUInt32(filedata, i);
+                        }
+                        filedata = filedata.Skip(4).ToArray();
+                        if (BitConverter.ToUInt32(filedata, 0) == filedata.Length)
+                        {
+                            File.WriteAllBytes(decpath, filedata);
+                            AddLine(RTB_Output, string.Format("Successfully decompressed {0}.", Path.GetFileName(decpath)));
+                            if (File.Exists(decpath))
+                                Open(decpath);
+                        }
+                        else
+                        {
+                            AddLine(RTB_Output, string.Format("Unable to automatically decompress {0}.", Path.GetFileName(path)));
+                        }
+                        return;
+                    }
                     try
                     {
                         File.WriteAllBytes(decpath, LZ11Decompress(filedata));
@@ -133,11 +156,16 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                 else if (ext == ".bin")
                 {
                     byte[] filedata = File.ReadAllBytes(path);
+                    var outname = Path.GetDirectoryName(path) + Path.DirectorySeparatorChar + Path.GetFileNameWithoutExtension(path) + ".txt";
                     if (BitConverter.ToUInt32(filedata, 0) == filedata.Length &&
                         new string(filedata.Skip(0x20).Take(0xC).Select(c => (char)c).ToArray()) == "MESS_ARCHIVE")
                     {
-                        string archive_name = ExtractFireEmblemMessageArchive(Path.GetDirectoryName(path) + Path.DirectorySeparatorChar + Path.GetFileNameWithoutExtension(path) + ".txt", filedata);
+                        string archive_name = ExtractFireEmblemMessageArchive(outname, filedata);
                         AddLine(RTB_Output, string.Format("Successfully Extracted {0} ({1}).", archive_name, Path.GetFileName(path)));
+                    }
+                    else if (TryExtractFireEmblemHeroesMessageArchive(outname, filedata))
+                    {
+                        AddLine(RTB_Output, string.Format("Successfully extracted Heroes Message Archive {0}", Path.GetFileName(path)));
                     }
                 }
                 else if (ext == ".arc")
@@ -313,6 +341,86 @@ namespace Fire_Emblem_Awakening_Archive_Tool
             File.WriteAllLines(outname, Lines);
 
             return ArchiveName;
+        }
+
+        private bool TryExtractFireEmblemHeroesMessageArchive(string outname, byte[] archive)
+        {
+            if (archive.Length < 0x28)
+                return false;
+
+            var encoding = Encoding.UTF8;
+
+            var len = BitConverter.ToUInt32(archive, 0);
+            var string_table_end = BitConverter.ToUInt32(archive, 4);
+            if (len != archive.Length)
+                return false;
+            if (string_table_end > archive.Length)
+                return false;
+
+            var num_strings = BitConverter.ToUInt64(archive, 0x20);
+            if ((num_strings*0x10 + string_table_end + 0x20) != (ulong)archive.Length)
+                return false;
+
+            // Okay this is probably a message archive.
+            var dec_archive = (byte[]) archive.Clone();
+            var names = new string[num_strings];
+            var messages = new string[num_strings];
+
+            // This isn't how the game internally does it, but the game's cipher reduces to this.
+            var xorkey = new byte[] { 0x58, 0xDF, 0x3F, 0x59, 0x39, 0x85, 0x30, 0xB1, 0x2D, 0xB0, 0x80, 0x13, 0xB3, 0xCB, 0x25, 0xB0, 0xE8, 0x5D, 0x2E, 0x29, 0xBF, 0xC9, 0xEA, 0x70, 0x33, 0x7B, 0xE6, 0xD3, 0xD2 };
+
+            var is_message_archive = false;
+
+            for (var i = (ulong)0; i < num_strings; i++)
+            {
+                var name_ofs = BitConverter.ToUInt64(archive, (int)(0x28 + i * 0x10)) + 0x20;
+                var str_ofs = BitConverter.ToUInt64(archive, (int)(0x30 + i * 0x10)) + 0x20;
+                var n_len = 0;
+                var s_len = 0;
+
+                var cur_k = (xorkey[0] + xorkey[1]) & 0xFF;
+                while (dec_archive[n_len + (int) name_ofs] != 0)
+                {
+                    cur_k ^= xorkey[n_len % xorkey.Length];
+                    if (cur_k != dec_archive[n_len + (int)name_ofs])
+                        dec_archive[n_len + (int)name_ofs] ^= (byte)cur_k;
+                    n_len++;
+                }
+
+                cur_k = (xorkey[0] + xorkey[1]) & 0xFF;
+                while (dec_archive[s_len + (int)str_ofs] != 0)
+                {
+                    cur_k ^= xorkey[s_len % xorkey.Length];
+                    if (cur_k != dec_archive[s_len + (int)str_ofs])
+                        dec_archive[s_len + (int)str_ofs] ^= (byte)cur_k;
+                    s_len++;
+                }
+
+                names[i] = encoding.GetString(dec_archive, (int) name_ofs, n_len).Replace("\n", "\\n").Replace("\r", "\\r");
+                messages[i] = encoding.GetString(dec_archive, (int) str_ofs, s_len).Replace("\n", "\\n").Replace("\r", "\\r");
+
+                if (!is_message_archive)
+                {
+                    is_message_archive = names[i].StartsWith("M") && names[i].Substring(0, 8).Contains("ID_");
+                }
+            }
+
+            if (!is_message_archive)
+                return false;
+
+            var Lines = new List<string>
+            {
+                "[Heroes Archive] (" + Path.GetFileNameWithoutExtension(outname) + ")",
+                Environment.NewLine,
+                "Heroes Message Name: Message",
+                Environment.NewLine
+            };
+
+            for (var i = (ulong)0; i < num_strings; i++)
+                Lines.Add(string.Format("{0}: {1}", names[i], messages[i]));
+            File.WriteAllLines(outname, Lines);
+
+            return true;
         }
 
         private void TB_FilePath_TextChanged(object sender, EventArgs e)
