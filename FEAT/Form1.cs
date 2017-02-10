@@ -378,31 +378,40 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                 var n_len = 0;
                 var s_len = 0;
 
-                if (name_ofs != 0x20) {
+                if (name_ofs != 0x20)
+                {
                     var cur_k = (xorkey[0] + xorkey[1]) & 0xFF;
-                    while (dec_archive[n_len + (int)name_ofs] != 0)
+                    while (dec_archive[n_len + (int) name_ofs] != 0)
                     {
-                        cur_k ^= xorkey[n_len % xorkey.Length];
-                        if (cur_k != dec_archive[n_len + (int)name_ofs])
-                            dec_archive[n_len + (int)name_ofs] ^= (byte)cur_k;
+                        cur_k ^= xorkey[n_len%xorkey.Length];
+                        if (cur_k != dec_archive[n_len + (int) name_ofs])
+                            dec_archive[n_len + (int) name_ofs] ^= (byte) cur_k;
                         n_len++;
                     }
+                    names[i] = encoding.GetString(dec_archive, (int) name_ofs, n_len).Replace("\n", "\\n").Replace("\r", "\\r");
+                }
+                else
+                {
+                    names[i] = "";
                 }
 
                 if (str_ofs != 0x20)
                 {
                     var cur_k = (xorkey[0] + xorkey[1]) & 0xFF;
-                    while (dec_archive[s_len + (int)str_ofs] != 0)
+                    while (dec_archive[s_len + (int) str_ofs] != 0)
                     {
-                        cur_k ^= xorkey[s_len % xorkey.Length];
-                        if (cur_k != dec_archive[s_len + (int)str_ofs])
-                            dec_archive[s_len + (int)str_ofs] ^= (byte)cur_k;
+                        cur_k ^= xorkey[s_len%xorkey.Length];
+                        if (cur_k != dec_archive[s_len + (int) str_ofs])
+                            dec_archive[s_len + (int) str_ofs] ^= (byte) cur_k;
                         s_len++;
                     }
+                    messages[i] = encoding.GetString(dec_archive, (int) str_ofs, s_len).Replace("\n", "\\n").Replace("\r", "\\r");
+                }
+                else
+                {
+                    messages[i] = "";
                 }
 
-                names[i] = encoding.GetString(dec_archive, (int) name_ofs, n_len).Replace("\n", "\\n").Replace("\r", "\\r");
-                messages[i] = encoding.GetString(dec_archive, (int) str_ofs, s_len).Replace("\n", "\\n").Replace("\r", "\\r");
 
                 if (!is_message_archive)
                 {
