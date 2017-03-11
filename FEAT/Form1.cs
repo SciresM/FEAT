@@ -86,6 +86,36 @@ namespace Fire_Emblem_Awakening_Archive_Tool
             }).Start();
         }
 
+        public static byte[] Decompress(byte[] Data)
+        {
+            var leng = (uint)(Data[4] << 24 | Data[5] << 16 | Data[6] << 8 | Data[7]);
+            byte[] Result = new byte[leng];
+            int Offs = 16;
+            int dstoffs = 0;
+            while (true)
+            {
+                byte header = Data[Offs++];
+                for (int i = 0; i < 8; i++)
+                {
+                    if ((header & 0x80) != 0) Result[dstoffs++] = Data[Offs++];
+                    else
+                    {
+                        byte b = Data[Offs++];
+                        int offs = ((b & 0xF) << 8 | Data[Offs++]) + 1;
+                        int length = (b >> 4) + 2;
+                        if (length == 2) length = Data[Offs++] + 0x12;
+                        for (int j = 0; j < length; j++)
+                        {
+                            Result[dstoffs] = Result[dstoffs - offs];
+                            dstoffs++;
+                        }
+                    }
+                    if (dstoffs >= leng) return Result;
+                    header <<= 1;
+                }
+            }
+        }
+
         private void Open(string path)
         {
             if (Directory.Exists(path))
@@ -98,7 +128,21 @@ namespace Fire_Emblem_Awakening_Archive_Tool
             else if (File.Exists(path))
             {
                 string ext = Path.GetExtension(path).ToLower();
-                if (ext == ".lz")
+                var yaz0 = false;
+                using (var fs = File.OpenRead(path))
+                {
+                    if (fs.Length > 4 && fs.ReadByte() == 'Y' && fs.ReadByte() == 'a' && fs.ReadByte() == 'z' && fs.ReadByte() == '0')
+                    {
+                        yaz0 = true;
+                    }
+                }
+                if (yaz0)
+                {
+                    var cmp = File.ReadAllBytes(path);
+                    File.WriteAllBytes(path + ".dec", Decompress(cmp));
+                    AddLine(RTB_Output, string.Format("Yaz0 decompressed {0}.", path));
+                }
+                else if (ext == ".lz")
                 {
                     byte[] filedata = File.ReadAllBytes(path);
                     string decpath = Path.GetDirectoryName(path) + Path.DirectorySeparatorChar + Path.GetFileNameWithoutExtension(path);
@@ -358,7 +402,13 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                 return false;
 
             var num_strings = BitConverter.ToUInt64(archive, 0x20);
-            if ((num_strings*0x10 + string_table_end + 0x20) != (ulong)archive.Length)
+
+            var is_message_archive = (BitConverter.ToUInt64(archive, (int) string_table_end) == 8) &&
+                         (BitConverter.ToUInt64(archive, archive.Length - 8) == num_strings*0x10);
+
+            is_message_archive |= ((num_strings*0x10 + string_table_end + 0x20) != (ulong) archive.Length);
+
+            if (!is_message_archive)
                 return false;
 
             // Okay this is probably a message archive.
@@ -369,54 +419,69 @@ namespace Fire_Emblem_Awakening_Archive_Tool
             // This isn't how the game internally does it, but the game's cipher reduces to this.
             var xorkey = new byte[] { 0x58, 0xDF, 0x3F, 0x59, 0x39, 0x85, 0x30, 0xB1, 0x2D, 0xB0, 0x80, 0x13, 0xB3, 0xCB, 0x25, 0xB0, 0xE8, 0x5D, 0x2E, 0x29, 0xBF, 0xC9, 0xEA, 0x70, 0x33, 0x7B, 0xE6, 0xD3, 0xD2 };
 
-            var is_message_archive = false;
+            is_message_archive = false;
 
-            for (var i = (ulong)0; i < num_strings; i++)
+            try
             {
-                var name_ofs = BitConverter.ToUInt64(archive, (int)(0x28 + i * 0x10)) + 0x20;
-                var str_ofs = BitConverter.ToUInt64(archive, (int)(0x30 + i * 0x10)) + 0x20;
-                var n_len = 0;
-                var s_len = 0;
-
-                if (name_ofs != 0x20)
+                for (var i = (ulong)0; i < num_strings; i++)
                 {
-                    var cur_k = (xorkey[0] + xorkey[1]) & 0xFF;
-                    while (dec_archive[n_len + (int) name_ofs] != 0)
+                    var name_ofs = BitConverter.ToUInt64(archive, (int)(0x28 + i * 0x10)) + 0x20;
+                    var str_ofs = BitConverter.ToUInt64(archive, (int)(0x30 + i * 0x10)) + 0x20;
+
+                    if ((name_ofs < 0x28 + num_strings * 0x10 || name_ofs > string_table_end) && name_ofs != 0x20)
+                        return false;
+
+                    if ((str_ofs < 0x28 + num_strings * 0x10 || str_ofs > string_table_end) && str_ofs != 0x20)
+                        return false;
+
+
+                    var n_len = 0;
+                    var s_len = 0;
+
+                    if (name_ofs != 0x20)
                     {
-                        cur_k ^= xorkey[n_len%xorkey.Length];
-                        if (cur_k != dec_archive[n_len + (int) name_ofs])
-                            dec_archive[n_len + (int) name_ofs] ^= (byte) cur_k;
-                        n_len++;
+                        var cur_k = (xorkey[0] + xorkey[1]) & 0xFF;
+                        while (dec_archive[n_len + (int)name_ofs] != 0)
+                        {
+                            cur_k ^= xorkey[n_len % xorkey.Length];
+                            if (cur_k != dec_archive[n_len + (int)name_ofs])
+                                dec_archive[n_len + (int)name_ofs] ^= (byte)cur_k;
+                            n_len++;
+                        }
+                        names[i] = encoding.GetString(dec_archive, (int)name_ofs, n_len).Replace("\n", "\\n").Replace("\r", "\\r");
                     }
-                    names[i] = encoding.GetString(dec_archive, (int) name_ofs, n_len).Replace("\n", "\\n").Replace("\r", "\\r");
-                }
-                else
-                {
-                    names[i] = "";
-                }
-
-                if (str_ofs != 0x20)
-                {
-                    var cur_k = (xorkey[0] + xorkey[1]) & 0xFF;
-                    while (dec_archive[s_len + (int) str_ofs] != 0)
+                    else
                     {
-                        cur_k ^= xorkey[s_len%xorkey.Length];
-                        if (cur_k != dec_archive[s_len + (int) str_ofs])
-                            dec_archive[s_len + (int) str_ofs] ^= (byte) cur_k;
-                        s_len++;
+                        names[i] = "";
                     }
-                    messages[i] = encoding.GetString(dec_archive, (int) str_ofs, s_len).Replace("\n", "\\n").Replace("\r", "\\r");
-                }
-                else
-                {
-                    messages[i] = "";
-                }
+
+                    if (str_ofs != 0x20)
+                    {
+                        var cur_k = (xorkey[0] + xorkey[1]) & 0xFF;
+                        while (dec_archive[s_len + (int)str_ofs] != 0)
+                        {
+                            cur_k ^= xorkey[s_len % xorkey.Length];
+                            if (cur_k != dec_archive[s_len + (int)str_ofs])
+                                dec_archive[s_len + (int)str_ofs] ^= (byte)cur_k;
+                            s_len++;
+                        }
+                        messages[i] = encoding.GetString(dec_archive, (int)str_ofs, s_len).Replace("\n", "\\n").Replace("\r", "\\r");
+                    }
+                    else
+                    {
+                        messages[i] = "";
+                    }
 
 
-                if (!is_message_archive)
-                {
-                    is_message_archive = names[i].StartsWith("M") && names[i].Substring(0, 8).Contains("ID_");
+                    if (!is_message_archive)
+                    {
+                        is_message_archive = names[i].StartsWith("M") && names[i].Substring(0, 8).Contains("ID_");
+                    }
                 }
+            }
+            catch
+            {
+                return false;
             }
 
             if (!is_message_archive)
