@@ -403,7 +403,7 @@ namespace Fire_Emblem_Awakening_Archive_Tool
 
             var num_strings = BitConverter.ToUInt64(archive, 0x20);
 
-            var is_message_archive = (BitConverter.ToUInt64(archive, (int) string_table_end) == 8) &&
+            var is_message_archive = (BitConverter.ToUInt64(archive, (int) string_table_end + 0x20) == 8) &&
                          (BitConverter.ToUInt64(archive, archive.Length - 8) == num_strings*0x10);
 
             is_message_archive |= ((num_strings*0x10 + string_table_end + 0x20) != (ulong) archive.Length);
