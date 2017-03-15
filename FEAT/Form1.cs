@@ -428,10 +428,10 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                     var name_ofs = BitConverter.ToUInt64(archive, (int)(0x28 + i * 0x10)) + 0x20;
                     var str_ofs = BitConverter.ToUInt64(archive, (int)(0x30 + i * 0x10)) + 0x20;
 
-                    if ((name_ofs < 0x28 + num_strings * 0x10 || name_ofs > string_table_end) && name_ofs != 0x20)
+                    if ((name_ofs < 0x28 + num_strings * 0x10 || name_ofs > string_table_end + 0x20) && name_ofs != 0x20)
                         return false;
 
-                    if ((str_ofs < 0x28 + num_strings * 0x10 || str_ofs > string_table_end) && str_ofs != 0x20)
+                    if ((str_ofs < 0x28 + num_strings * 0x10 || str_ofs > string_table_end + 0x20) && str_ofs != 0x20)
                         return false;
 
 
