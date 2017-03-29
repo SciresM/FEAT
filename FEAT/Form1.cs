@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-
 using DSDecmp.Formats.Nitro;
 using ctpktool;
 using BCH;
@@ -136,12 +136,23 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                         yaz0 = true;
                     }
                 }
-                if (yaz0)
+                if ((ModifierKeys == Keys.Control) && (MessageBox.Show("Compress " + path + "?", "Prompt", MessageBoxButtons.YesNo, MessageBoxIcon.Asterisk) == DialogResult.Yes))
+                {
+                    var cmp = LZ11Compress(File.ReadAllBytes(path));
+                    byte[] cmp2 = new byte[cmp.Length + 4];
+
+                    cmp2[0] = 0x13;
+                    Array.Copy(cmp, 0, cmp2, 4, cmp.Length);
+                    Array.Copy(cmp, 1, cmp2, 1, 3);
+                    File.WriteAllBytes(path + ".lz", cmp2);
+                    AddLine(RTB_Output, string.Format("LZ13 compressed {0} to {1}", path, path + ".lz"));
+                }
+                else if (yaz0)
                 {
                     var cmp = File.ReadAllBytes(path);
                     File.WriteAllBytes(path + ".dec", Decompress(cmp));
                     AddLine(RTB_Output, string.Format("Yaz0 decompressed {0}.", path));
-                }
+                } 
                 else if (ext == ".lz")
                 {
                     byte[] filedata = File.ReadAllBytes(path);
@@ -228,6 +239,39 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                 {
                     AddText(RTB_Output, string.Format("Extracting textures from {0}...", Path.GetFileName(path)));
                     AddLine(RTB_Output, BCHTool.parseBCH(path) ? "Complete!" : "Failure!");
+                }
+                else if (ext == ".bfnt")
+                {
+                    AddText(RTB_Output, string.Format("Extracting font textures from {0}...", Path.GetFileName(path)));
+                    var bfnt = File.ReadAllBytes(path);
+                    if (BitConverter.ToUInt16(bfnt, 0x20) != 0x30)
+                    {
+                        AddLine(RTB_Output, "Failure!");
+                    }
+                    else
+                    {
+                        var w = BitConverter.ToUInt16(bfnt, 0x10);
+                        var h = BitConverter.ToUInt16(bfnt, 0x12);
+                        var texsize = BitConverter.ToUInt32(bfnt, 0x14);
+                        var texofs = BitConverter.ToUInt32(bfnt, 0x24);
+                        if (texsize != (w * h) /2)
+                        {
+                            AddLine(RTB_Output, "Failure!");
+                        }
+                        else
+                        {
+                            var num_textures = BitConverter.ToUInt16(bfnt, 0x1A);
+                            for (var i = 0; i < num_textures; i++)
+                            {
+                                var dat = new byte[texsize];
+                                Array.Copy(bfnt, texofs + texsize * i, dat, 0, texsize);
+                                var outname = Path.GetDirectoryName(path) + Path.DirectorySeparatorChar + Path.GetFileNameWithoutExtension(path) + "_" + i + ".png";;
+                                using (var bmp = CTR.TextureUtil.DecodeByteArray(dat, w, h, CTR.TextureFormat.L4))
+                                    bmp.Save(outname, ImageFormat.Png);
+                            }
+                            AddLine(RTB_Output, "Complete!");
+                        }
+                    }
                 }
                 else if (ext == ".txt")
                 {
@@ -407,6 +451,8 @@ namespace Fire_Emblem_Awakening_Archive_Tool
                          (BitConverter.ToUInt64(archive, archive.Length - 8) == num_strings*0x10);
 
             is_message_archive |= ((num_strings*0x10 + string_table_end + 0x20) != (ulong) archive.Length);
+
+            is_message_archive &= num_strings < 10000;
 
             if (!is_message_archive)
                 return false;
