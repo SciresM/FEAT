@@ -452,7 +452,7 @@ namespace Fire_Emblem_Awakening_Archive_Tool
 
             is_message_archive |= ((num_strings*0x10 + string_table_end + 0x20) != (ulong) archive.Length);
 
-            is_message_archive &= num_strings < 10000;
+            is_message_archive &= num_strings < ulong.MaxValue;
 
             if (!is_message_archive)
                 return false;
